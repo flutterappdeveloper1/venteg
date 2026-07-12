@@ -22,6 +22,8 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const [showAdminHint, setShowAdminHint] = useState(false);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -173,26 +175,47 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             </div>
           </div>
 
-          <div className="p-3 bg-slate-50 border border-slate-100 rounded-lg space-y-1.5" id="admin-credentials-hint">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-slate-700">🔐 অ্যাডমিন লগইন তথ্য:</span>
+          {showAdminHint ? (
+            <div className="p-3 bg-slate-50 border border-slate-100 rounded-lg space-y-1.5" id="admin-credentials-hint">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-700">🔐 অ্যাডমিন লগইন তথ্য:</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSignUp(false);
+                      setEmail('ventegksy@gmail.com');
+                      setPassword('@Venteg$ksy321@');
+                    }}
+                    className="text-[10px] font-extrabold text-indigo-600 hover:text-indigo-700 cursor-pointer bg-indigo-50 px-1.5 py-0.5 rounded transition-colors"
+                  >
+                    অটো-ফিল করুন
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminHint(false)}
+                    className="text-[10px] font-bold text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    লুকান
+                  </button>
+                </div>
+              </div>
+              <div className="text-[9px] text-slate-500 font-medium space-y-0.5 leading-normal">
+                <p><strong>ইমেইল:</strong> ventegksy@gmail.com</p>
+                <p><strong>পাসওয়ার্ড:</strong> @Venteg$ksy321@</p>
+              </div>
+            </div>
+          ) : (
+            <div className="text-right" id="admin-credentials-toggle-container">
               <button
                 type="button"
-                onClick={() => {
-                  setIsSignUp(false);
-                  setEmail('ventegksy@gmail.com');
-                  setPassword('@Venteg$ksy321@');
-                }}
-                className="text-[10px] font-extrabold text-indigo-600 hover:text-indigo-700 cursor-pointer bg-indigo-50 px-1.5 py-0.5 rounded transition-colors"
+                onClick={() => setShowAdminHint(true)}
+                className="text-[10px] text-slate-400 hover:text-slate-600 underline font-semibold cursor-pointer transition-colors"
               >
-                অটো-ফিল করুন
+                🔐 ডেমো অ্যাডমিন লগইন তথ্য দেখতে এখানে ক্লিক করুন
               </button>
             </div>
-            <div className="text-[9px] text-slate-500 font-medium space-y-0.5 leading-normal">
-              <p><strong>ইমেইল:</strong> ventegksy@gmail.com</p>
-              <p><strong>পাসওয়ার্ড:</strong> @Venteg$ksy321@</p>
-            </div>
-          </div>
+          )}
 
           <button
             type="submit"
