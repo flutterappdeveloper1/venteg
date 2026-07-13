@@ -118,27 +118,31 @@ export default function App() {
               });
             }
 
-            // Soft browser-synthesized audio alert!
+            // Play notification sound
             if (soundEnabled) {
-              try {
-                const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-                // Play a nice warm notification sound (two chime notes)
-                const playNote = (freq: number, start: number, duration: number) => {
-                  const osc = audioCtx.createOscillator();
-                  const gain = audioCtx.createGain();
-                  osc.connect(gain);
-                  gain.connect(audioCtx.destination);
-                  osc.frequency.setValueAtTime(freq, start);
-                  gain.gain.setValueAtTime(0.15, start);
-                  gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
-                  osc.start(start);
-                  osc.stop(start + duration);
-                };
-                playNote(523.25, audioCtx.currentTime, 0.15); // C5
-                playNote(659.25, audioCtx.currentTime + 0.12, 0.3); // E5
-              } catch (e) {
-                console.log('Audio feedback failed:', e);
-              }
+              const audio = new Audio('/notification.mp3');
+              audio.play().catch((err) => {
+                console.log('Audio file play failed/blocked, falling back to Web Audio synthesis:', err);
+                // Graceful fallback to browser-synthesized pleasant two-tone chime!
+                try {
+                  const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                  const playNote = (freq: number, start: number, duration: number) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.frequency.setValueAtTime(freq, start);
+                    gain.gain.setValueAtTime(0.15, start);
+                    gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+                    osc.start(start);
+                    osc.stop(start + duration);
+                  };
+                  playNote(523.25, audioCtx.currentTime, 0.15); // C5 (High clear chime)
+                  playNote(659.25, audioCtx.currentTime + 0.12, 0.3); // E5
+                } catch (e) {
+                  console.log('Web Audio feedback failed:', e);
+                }
+              });
             }
           }
         }
@@ -605,6 +609,8 @@ export default function App() {
                   fcmToken={fcmToken}
                   notificationPermission={notificationPermission}
                   onRegisterPush={handleRegisterPush}
+                  soundEnabled={soundEnabled}
+                  onToggleSound={() => setSoundEnabled(!soundEnabled)}
                 />
               ) : (
                 /* Beautiful restricted access state */

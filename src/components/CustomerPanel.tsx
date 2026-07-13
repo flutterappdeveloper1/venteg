@@ -420,11 +420,11 @@ export default function CustomerPanel({ products, orders, onPlaceOrder, currentU
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl border border-gray-50"
+              className="bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl border border-gray-50 flex flex-col max-h-[92vh]"
               id="order-modal-content"
             >
               {/* Modal header */}
-              <div className="bg-emerald-600 text-white p-5 flex justify-between items-center">
+              <div className="bg-emerald-600 text-white p-5 flex justify-between items-center shrink-0">
                 <div>
                   <h3 className="font-bold text-lg">🛍️ নিরাপদ অর্ডার নিশ্চিত করুন</h3>
                   <p className="text-[11px] text-emerald-100 mt-0.5">সব বিবরণ পূরণ করে অর্ডার সম্পন্ন করুন।</p>
@@ -439,7 +439,7 @@ export default function CustomerPanel({ products, orders, onPlaceOrder, currentU
               </div>
 
               {/* Modal body */}
-              <form onSubmit={handleCheckoutSubmit} className="p-6 space-y-5">
+              <form onSubmit={handleCheckoutSubmit} className="p-6 space-y-5 overflow-y-auto flex-1 min-h-0">
                 {/* Product Summary */}
                 <div className="bg-gray-50 p-4 rounded-2xl flex items-center justify-between border border-gray-100" id="modal-product-summary">
                   <div>
@@ -605,7 +605,7 @@ export default function CustomerPanel({ products, orders, onPlaceOrder, currentU
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white w-full max-w-md rounded-3xl p-6 text-center space-y-6 shadow-2xl border border-gray-50"
+              className="bg-white w-full max-w-md rounded-3xl p-6 text-center space-y-6 shadow-2xl border border-gray-50 max-h-[92vh] overflow-y-auto"
               id="success-modal-content"
             >
               <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto" id="success-icon-container">

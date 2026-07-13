@@ -22,6 +22,8 @@ interface AdminPanelProps {
   fcmToken: string;
   notificationPermission: string;
   onRegisterPush: () => void;
+  soundEnabled: boolean;
+  onToggleSound: () => void;
 }
 
 export default function AdminPanel({
@@ -38,7 +40,9 @@ export default function AdminPanel({
   onRemoveSubAdmin,
   fcmToken,
   notificationPermission,
-  onRegisterPush
+  onRegisterPush,
+  soundEnabled,
+  onToggleSound
 }: AdminPanelProps) {
   // Tabs within Admin Panel
   const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'products' | 'orders' | 'subadmins' | 'notifications'>('dashboard');
@@ -1291,6 +1295,82 @@ export default function AdminPanel({
           className="space-y-4"
           id="notifications-tab-content"
         >
+          {/* Notification Sound Settings Card */}
+          <div className="bg-gradient-to-r from-indigo-50 to-emerald-50 p-5 rounded-2xl border border-indigo-100 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4" id="sound-control-card">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 bg-indigo-600 text-white rounded-lg">
+                  {soundEnabled ? <Volume2 className="w-4 h-4 animate-pulse" /> : <VolumeX className="w-4 h-4" />}
+                </span>
+                <h3 className="text-sm font-extrabold text-slate-900">
+                  অর্ডার নোটিফিকেশন সাউন্ড সেটিংস
+                </h3>
+              </div>
+              <p className="text-[11px] text-slate-600 font-medium leading-relaxed max-w-3xl">
+                কাস্টমার নতুন কোনো অর্ডার সাবমিট করলে বা নতুন নোটিফিকেশন আসলে এই সাউন্ডটি স্বয়ংক্রিয়ভাবে প্লে হবে। আধুনিক ব্রাউজারের অটো-প্লে নিরাপত্তা পলিসি সচল রাখতে অনুগ্রহ করে নোটিফিকেশন সাউন্ড চালু (Unmute) করে অন্তত একবার নিচের <strong>"সাউন্ড টেস্ট করুন"</strong> বাটনে ক্লিক করুন।
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5 shrink-0 self-end md:self-auto">
+              {/* Play Test Sound button */}
+              <button
+                type="button"
+                onClick={() => {
+                  const audio = new Audio('/notification.mp3');
+                  audio.play().catch((err) => {
+                    console.log('Test sound file failed, falling back to synthesis:', err);
+                    try {
+                      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                      const playNote = (freq: number, start: number, duration: number) => {
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.connect(gain);
+                        gain.connect(audioCtx.destination);
+                        osc.frequency.setValueAtTime(freq, start);
+                        gain.gain.setValueAtTime(0.15, start);
+                        gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+                        osc.start(start);
+                        osc.stop(start + duration);
+                      };
+                      playNote(523.25, audioCtx.currentTime, 0.15); // C5
+                      playNote(659.25, audioCtx.currentTime + 0.12, 0.3); // E5
+                    } catch (e) {
+                      console.error(e);
+                    }
+                  });
+                }}
+                className="px-3.5 py-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-extrabold rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer border border-indigo-200"
+                title="সাউন্ড টেস্ট করুন"
+              >
+                <BellRing className="w-3.5 h-3.5" />
+                সাউন্ড টেস্ট করুন
+              </button>
+
+              {/* Mute/Unmute Toggle */}
+              <button
+                type="button"
+                onClick={onToggleSound}
+                className={`px-4 py-2 font-extrabold rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer border ${
+                  soundEnabled
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500 shadow-sm'
+                    : 'bg-slate-200 hover:bg-slate-300 text-slate-700 border-slate-300'
+                }`}
+              >
+                {soundEnabled ? (
+                  <>
+                    <Volume2 className="w-3.5 h-3.5" />
+                    সাউন্ড সচল (🔊)
+                  </>
+                ) : (
+                  <>
+                    <VolumeX className="w-3.5 h-3.5" />
+                    সাউন্ড বন্ধ (🔇)
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             
             {/* FCM Credentials & VAPID Key Pair */}
