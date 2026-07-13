@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   ShoppingBag, Search, Plus, Minus, Truck, CreditCard, CheckCircle2, 
-  ArrowRight, Clock, User, Phone, MapPin, Sparkles, Filter
+  ArrowRight, Clock, User, Phone, MapPin, Sparkles, Filter, Home
 } from 'lucide-react';
 import { Product, Order, PaymentMethod } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -634,21 +634,39 @@ export default function CustomerPanel({ products, orders, onPlaceOrder, currentU
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-2" id="success-modal-buttons">
-                <button
-                  id="btn-success-close"
-                  onClick={() => setLastPlacedOrderId(null)}
-                  className="flex-1 py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer"
-                >
-                  বাজার করা চালিয়ে যান
-                </button>
+              <div className="flex flex-col gap-2.5 pt-2" id="success-modal-buttons">
                 <button
                   id="btn-success-track"
                   onClick={handleViewOrderTracking}
-                  className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all duration-150 cursor-pointer"
+                  className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs sm:text-sm font-extrabold shadow-sm transition-all duration-150 cursor-pointer flex items-center justify-center gap-1.5"
                 >
+                  <Clock className="w-4 h-4" />
                   অর্ডার ট্র্যাক করুন
                 </button>
+                <div className="flex gap-2.5">
+                  <button
+                    id="btn-success-close"
+                    onClick={() => {
+                      setLastPlacedOrderId(null);
+                      setActiveCustomerView('shop');
+                    }}
+                    className="flex-1 py-3 px-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl text-[11px] sm:text-xs font-bold transition-all duration-150 cursor-pointer flex items-center justify-center gap-1.5 border border-gray-200"
+                  >
+                    <ShoppingBag className="w-3.5 h-3.5 text-gray-500" />
+                    বাজার চালিয়ে যান
+                  </button>
+                  <button
+                    id="btn-success-home"
+                    onClick={() => {
+                      setLastPlacedOrderId(null);
+                      setActiveCustomerView('shop');
+                    }}
+                    className="flex-1 py-3 px-3.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-2xl text-[11px] sm:text-xs font-bold transition-all duration-150 cursor-pointer flex items-center justify-center gap-1.5 border border-indigo-100"
+                  >
+                    <Home className="w-3.5 h-3.5 text-indigo-500" />
+                    ড্যাশবোর্ডে যান
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>
