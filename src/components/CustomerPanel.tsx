@@ -456,33 +456,138 @@ export default function CustomerPanel({ products, orders, onPlaceOrder, currentU
                 </div>
 
                 {/* Quantity select */}
-                <div className="flex items-center justify-between py-2 border-b border-gray-100" id="modal-quantity-row">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between py-3 border-b border-gray-100 gap-3" id="modal-quantity-row">
                   <div>
                     <p className="text-xs font-bold text-gray-700">অর্ডার করার পরিমান উল্লেখ করুন</p>
                     <p className="text-[10px] text-emerald-600 font-semibold mt-0.5">সর্বোচ্চ স্টক: {selectedProduct.stock} {selectedProduct.unit === 'kg' ? 'কেজি' : 'পিস'}</p>
                   </div>
 
-                  <div className="flex items-center gap-3 bg-gray-100 p-1 rounded-xl">
-                    <button
-                      type="button"
-                      onClick={() => handleQtyChange(-1)}
-                      disabled={orderQuantity <= 1}
-                      className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-gray-700 hover:bg-gray-200 font-bold text-sm shadow-xs disabled:opacity-50 cursor-pointer"
-                    >
-                      <Minus className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="w-10 text-center font-extrabold text-sm text-gray-900">
-                      {orderQuantity} {selectedProduct.unit === 'kg' ? 'কেজি' : 'পিস'}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleQtyChange(1)}
-                      disabled={orderQuantity >= selectedProduct.stock}
-                      className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-gray-700 hover:bg-gray-200 font-bold text-sm shadow-xs disabled:opacity-50 cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                  {selectedProduct.unit === 'kg' ? (
+                    <div className="flex flex-col gap-2 shrink-0 items-end w-full sm:w-auto" id="kg-quantity-selector">
+                      <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-xl w-full sm:w-auto justify-between sm:justify-start">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const val = Math.max(0.05, Math.round((orderQuantity - 0.25) * 100) / 100);
+                            setOrderQuantity(val);
+                          }}
+                          disabled={orderQuantity <= 0.05}
+                          className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-gray-700 hover:bg-gray-200 font-bold text-sm shadow-xs disabled:opacity-50 cursor-pointer"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            step="any"
+                            min="0.01"
+                            max={selectedProduct.stock}
+                            value={orderQuantity === 0 ? '' : orderQuantity}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              if (!isNaN(val)) {
+                                setOrderQuantity(val);
+                              } else {
+                                setOrderQuantity(0);
+                              }
+                            }}
+                            className="w-16 text-center font-extrabold text-sm text-gray-950 bg-white border border-gray-200 rounded-md py-1 focus:outline-none focus:border-emerald-500 font-sans"
+                          />
+                          <span className="text-xs font-bold text-gray-700">কেজি</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const val = Math.min(selectedProduct.stock, Math.round((orderQuantity + 0.25) * 100) / 100);
+                            setOrderQuantity(val);
+                          }}
+                          disabled={orderQuantity >= selectedProduct.stock}
+                          className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-gray-700 hover:bg-gray-200 font-bold text-sm shadow-xs disabled:opacity-50 cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 justify-end w-full sm:w-auto">
+                        <button
+                          type="button"
+                          onClick={() => setOrderQuantity(0.25)}
+                          className={`px-2 py-1 text-[10px] font-bold rounded-lg border transition-all cursor-pointer ${
+                            orderQuantity === 0.25 
+                              ? 'bg-emerald-600 text-white border-emerald-600' 
+                              : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                          }`}
+                        >
+                          ২৫০ গ্রাম (0.25)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setOrderQuantity(0.5)}
+                          className={`px-2 py-1 text-[10px] font-bold rounded-lg border transition-all cursor-pointer ${
+                            orderQuantity === 0.5 
+                              ? 'bg-emerald-600 text-white border-emerald-600' 
+                              : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                          }`}
+                        >
+                          ৫০০ গ্রাম (0.5)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setOrderQuantity(1)}
+                          className={`px-2 py-1 text-[10px] font-bold rounded-lg border transition-all cursor-pointer ${
+                            orderQuantity === 1 
+                              ? 'bg-emerald-600 text-white border-emerald-600' 
+                              : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                          }`}
+                        >
+                          ১ কেজি (1)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setOrderQuantity(1.5)}
+                          className={`px-2 py-1 text-[10px] font-bold rounded-lg border transition-all cursor-pointer ${
+                            orderQuantity === 1.5 
+                              ? 'bg-emerald-600 text-white border-emerald-600' 
+                              : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                          }`}
+                        >
+                          ১.৫ কেজি (1.5)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setOrderQuantity(2)}
+                          className={`px-2 py-1 text-[10px] font-bold rounded-lg border transition-all cursor-pointer ${
+                            orderQuantity === 2 
+                              ? 'bg-emerald-600 text-white border-emerald-600' 
+                              : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                          }`}
+                        >
+                          ২ কেজি (2)
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 bg-gray-100 p-1 rounded-xl" id="piece-quantity-selector">
+                      <button
+                        type="button"
+                        onClick={() => handleQtyChange(-1)}
+                        disabled={orderQuantity <= 1}
+                        className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-gray-700 hover:bg-gray-200 font-bold text-sm shadow-xs disabled:opacity-50 cursor-pointer"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="w-16 text-center font-extrabold text-sm text-gray-900">
+                        {orderQuantity} পিস
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleQtyChange(1)}
+                        disabled={orderQuantity >= selectedProduct.stock}
+                        className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-gray-700 hover:bg-gray-200 font-bold text-sm shadow-xs disabled:opacity-50 cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Customer Details Form */}

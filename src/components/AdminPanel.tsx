@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Plus, Search, Trash2, TrendingUp, DollarSign, Package, 
   ShoppingCart, Check, X, Layers, Users, TrendingDown, RefreshCw, PlusCircle,
-  LayoutGrid, List, Bell, BellRing, Copy, Volume2, VolumeX, Edit2
+  LayoutGrid, List, Bell, BellRing, Copy, Volume2, VolumeX, Edit2, Calendar, CalendarCheck
 } from 'lucide-react';
 import { Product, Order, UnitType, SubAdmin, Expense } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -148,6 +148,78 @@ export default function AdminPanel({
 
   // Active/Pending Orders count
   const pendingOrdersCount = orders.filter(o => o.status === 'pending').length;
+
+  // 1. Daily Invest and Profit calculation helper
+  // Let's group completed orders and expenses by date (YYYY-MM-DD)
+  const getLocalDateString = (isoString: string) => {
+    try {
+      const d = new Date(isoString);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    } catch (e) {
+      return '';
+    }
+  };
+
+  const todayStr = getLocalDateString(new Date().toISOString());
+
+  // Grouping maps
+  const dailyDataMap: {
+    [key: string]: {
+      date: string;
+      sales: number;
+      costOfSales: number;
+      grossProfit: number;
+      expenses: number;
+      netProfit: number;
+      ordersCount: number;
+    }
+  } = {};
+
+  // Process completed orders
+  completedOrders.forEach(o => {
+    const dStr = getLocalDateString(o.createdAt);
+    if (!dStr) return;
+    if (!dailyDataMap[dStr]) {
+      dailyDataMap[dStr] = { date: dStr, sales: 0, costOfSales: 0, grossProfit: 0, expenses: 0, netProfit: 0, ordersCount: 0 };
+    }
+    const product = products.find(p => p.id === o.productId);
+    const costPrice = product ? product.costPrice : 0;
+    const itemCost = o.quantity * costPrice;
+
+    dailyDataMap[dStr].sales += o.totalPrice;
+    dailyDataMap[dStr].costOfSales += itemCost;
+    dailyDataMap[dStr].grossProfit += (o.totalPrice - itemCost);
+    dailyDataMap[dStr].ordersCount += 1;
+  });
+
+  // Process expenses
+  expenses.forEach(e => {
+    const dStr = getLocalDateString(e.createdAt);
+    if (!dStr) return;
+    if (!dailyDataMap[dStr]) {
+      dailyDataMap[dStr] = { date: dStr, sales: 0, costOfSales: 0, grossProfit: 0, expenses: 0, netProfit: 0, ordersCount: 0 };
+    }
+    dailyDataMap[dStr].expenses += e.amount;
+  });
+
+  // Calculate net profits for all entries
+  Object.keys(dailyDataMap).forEach(key => {
+    dailyDataMap[key].netProfit = dailyDataMap[key].grossProfit - dailyDataMap[key].expenses;
+  });
+
+  // Sort daily records descending by date
+  const sortedDailyRecords = Object.values(dailyDataMap).sort((a, b) => b.date.localeCompare(a.date));
+
+  // Today's specific metrics
+  const todayMetrics = dailyDataMap[todayStr] || {
+    date: todayStr,
+    sales: 0,
+    costOfSales: 0,
+    grossProfit: 0,
+    expenses: 0,
+    netProfit: 0,
+    ordersCount: 0
+  };
 
   const handleCreateProduct = (e: React.FormEvent) => {
     e.preventDefault();
@@ -459,6 +531,109 @@ export default function AdminPanel({
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">পেন্ডিং ও সম্ভাব্য লাভ</p>
                 <p className="text-base font-black text-slate-900 mt-0.5 truncate">{pendingOrdersCount} টি অর্ডার</p>
                 <p className="text-[9px] text-amber-600 font-bold mt-1 truncate" title={`৳ ${potentialProfit.toLocaleString('bn-BD')}`}>সম্ভাব্য: ৳ {potentialProfit.toLocaleString('bn-BD')}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Today's live dashboard & daily statements */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 animate-fade-in" id="today-daily-section">
+            {/* Today's live cards (2/3 col on desktop) */}
+            <div className="lg:col-span-2 bg-slate-50/60 p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-3.5" id="today-live-card">
+              <div className="flex justify-between items-center border-b border-slate-200/60 pb-2">
+                <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <CalendarCheck className="w-4 h-4 text-indigo-600 animate-pulse" />
+                  আজকের লাইভ হিসাব ({new Date().toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' })})
+                </h3>
+                <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-100 font-bold px-2.5 py-0.5 rounded-lg">লাইভ আপডেট</span>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex items-center gap-3">
+                  <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-lg shrink-0">
+                    <TrendingUp className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">আজকের বিক্রয়</p>
+                    <p className="text-base font-black text-emerald-600 mt-0.5">৳ {todayMetrics.sales.toLocaleString('bn-BD')}</p>
+                    <p className="text-[9px] text-slate-400 font-medium truncate mt-0.5">{todayMetrics.ordersCount} টি সফল অর্ডার</p>
+                  </div>
+                </div>
+
+                <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex items-center gap-3">
+                  <div className="p-2.5 bg-rose-50 text-rose-500 rounded-lg shrink-0">
+                    <DollarSign className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">আজকের ইনভেস্ট (খরচ)</p>
+                    <p className="text-base font-black text-rose-600 mt-0.5">৳ {todayMetrics.expenses.toLocaleString('bn-BD')}</p>
+                    <p className="text-[9px] text-slate-400 font-medium truncate mt-0.5">আজকের আদার্স খরচ</p>
+                  </div>
+                </div>
+
+                <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex items-center gap-3">
+                  <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-lg shrink-0">
+                    <TrendingUp className="w-5 h-5 text-indigo-500" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">আজকের নিট প্রফিট</p>
+                    <p className={`text-base font-black mt-0.5 ${todayMetrics.netProfit >= 0 ? 'text-indigo-600' : 'text-rose-600'}`}>
+                      ৳ {todayMetrics.netProfit.toLocaleString('bn-BD')}
+                    </p>
+                    <p className="text-[9px] text-slate-400 font-medium truncate mt-0.5">গ্রস লাভ - খরচ</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Historical Daily ledger (1/3 col on desktop) */}
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between" id="daily-ledger-card">
+              <div className="space-y-2 flex-1">
+                <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-slate-500" />
+                    দৈনিক লাভ-ক্ষতি বিবরণী
+                  </h3>
+                  <span className="text-[9px] text-slate-400 font-bold">বিগত দিনসমূহ</span>
+                </div>
+
+                <div className="overflow-y-auto max-h-[110px] pr-1 space-y-1.5" id="daily-records-list">
+                  {sortedDailyRecords.length === 0 ? (
+                    <div className="text-center py-6 text-[10px] text-slate-400 font-semibold italic">
+                      দৈনিক কোনো রেকর্ড এখনও নেই।
+                    </div>
+                  ) : (
+                    sortedDailyRecords.map((record) => {
+                      const isToday = record.date === todayStr;
+                      return (
+                        <div 
+                          key={record.date} 
+                          className={`p-2 rounded-xl border text-[11px] flex justify-between items-center transition-all ${
+                            isToday 
+                              ? 'bg-indigo-50/50 border-indigo-150 shadow-2xs font-bold' 
+                              : 'bg-slate-50/40 border-slate-100 hover:bg-slate-50'
+                          }`}
+                        >
+                          <div>
+                            <span className="text-slate-800 font-bold">
+                              {isToday ? 'আজকে' : new Date(record.date).toLocaleDateString('bn-BD', { month: 'short', day: 'numeric' })}
+                            </span>
+                            <span className="text-[9px] text-slate-400 font-medium ml-1.5">({record.ordersCount} অর্ডার)</span>
+                          </div>
+                          <div className="flex gap-3 text-right">
+                            <div>
+                              <span className="text-[8px] text-slate-400 block font-medium">ইনভেস্ট (খরচ)</span>
+                              <span className="font-extrabold text-rose-600">৳ {record.expenses}</span>
+                            </div>
+                            <div>
+                              <span className="text-[8px] text-slate-400 block font-medium">নিট প্রফিট</span>
+                              <span className={`font-black ${record.netProfit >= 0 ? 'text-indigo-600' : 'text-rose-600'}`}>৳ {record.netProfit}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
             </div>
           </div>
