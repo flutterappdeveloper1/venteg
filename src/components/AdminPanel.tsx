@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { 
   Plus, Search, Trash2, TrendingUp, DollarSign, Package, 
   ShoppingCart, Check, X, Layers, Users, TrendingDown, RefreshCw, PlusCircle,
-  LayoutGrid, List, Bell, BellRing, Copy, Volume2, VolumeX
+  LayoutGrid, List, Bell, BellRing, Copy, Volume2, VolumeX, Edit2
 } from 'lucide-react';
-import { Product, Order, UnitType, SubAdmin } from '../types';
+import { Product, Order, UnitType, SubAdmin, Expense } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface AdminPanelProps {
@@ -15,6 +15,7 @@ interface AdminPanelProps {
   onAddProduct: (product: Omit<Product, 'id' | 'stock' | 'totalAddedQuantity'> & { initialStock: number }) => void;
   onAddStock: (productId: string, quantity: number) => void;
   onDeleteProduct: (productId: string) => void;
+  onEditProduct: (productId: string, updatedFields: Partial<Product>) => void;
   onUpdateOrderStatus: (orderId: string, status: 'delivered' | 'cancelled') => void;
   onResetData: () => void;
   onAddSubAdmin: (email: string) => Promise<void>;
@@ -24,6 +25,9 @@ interface AdminPanelProps {
   onRegisterPush: () => void;
   soundEnabled: boolean;
   onToggleSound: () => void;
+  expenses?: Expense[];
+  onAddExpense?: (title: string, amount: number) => void;
+  onDeleteExpense?: (expenseId: string) => void;
 }
 
 export default function AdminPanel({
@@ -34,6 +38,7 @@ export default function AdminPanel({
   onAddProduct,
   onAddStock,
   onDeleteProduct,
+  onEditProduct,
   onUpdateOrderStatus,
   onResetData,
   onAddSubAdmin,
@@ -42,7 +47,10 @@ export default function AdminPanel({
   notificationPermission,
   onRegisterPush,
   soundEnabled,
-  onToggleSound
+  onToggleSound,
+  expenses = [],
+  onAddExpense = () => {},
+  onDeleteExpense = () => {}
 }: AdminPanelProps) {
   // Tabs within Admin Panel
   const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'products' | 'orders' | 'subadmins' | 'notifications'>('dashboard');
@@ -65,9 +73,37 @@ export default function AdminPanel({
   const [formError, setFormError] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
 
+  // Product Edit Form States
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editProdName, setEditProdName] = useState('');
+  const [editProdCategory, setEditProdCategory] = useState('');
+  const [editProdUnit, setEditProdUnit] = useState<UnitType>('kg');
+  const [editProdCostPrice, setEditProdCostPrice] = useState('');
+  const [editProdSellingPrice, setEditProdSellingPrice] = useState('');
+  const [editProdStock, setEditProdStock] = useState('');
+  const [editProdTotalAddedQty, setEditProdTotalAddedQty] = useState('');
+  const [editFormError, setEditFormError] = useState('');
+
+  const startEditingProduct = (product: Product) => {
+    setEditingProduct(product);
+    setEditProdName(product.name);
+    setEditProdCategory(product.category);
+    setEditProdUnit(product.unit);
+    setEditProdCostPrice(product.costPrice.toString());
+    setEditProdSellingPrice(product.sellingPrice.toString());
+    setEditProdStock(product.stock.toString());
+    setEditProdTotalAddedQty(product.totalAddedQuantity.toString());
+    setEditFormError('');
+  };
+
   // Add Stock Modal/Inline State
   const [addingStockProductId, setAddingStockProductId] = useState<string | null>(null);
   const [stockToAdd, setStockToAdd] = useState('');
+
+  // Expense Form States
+  const [expenseTitle, setExpenseTitle] = useState('');
+  const [expenseAmount, setExpenseAmount] = useState('');
+  const [expenseError, setExpenseError] = useState('');
 
   // Iframe-safe Custom confirmation states (replacing window.confirm)
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
@@ -79,8 +115,14 @@ export default function AdminPanel({
   const categories = ['মিষ্টি জাতীয়', 'কোমল পানীয়', 'অন্যান্য'];
 
   // Financial Calculations
-  // Total Invest = sum of (totalAddedQuantity * costPrice) for all products
-  const totalInvestment = products.reduce((sum, p) => sum + (p.totalAddedQuantity * p.costPrice), 0);
+  // Total Product Invest = sum of (totalAddedQuantity * costPrice) for all products
+  const totalProductInvestment = products.reduce((sum, p) => sum + (p.totalAddedQuantity * p.costPrice), 0);
+  
+  // Total Other Expenses
+  const totalOtherExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+
+  // Total Invest = Product investment + Other expenses
+  const totalInvestment = totalProductInvestment + totalOtherExpenses;
   
   // Completed Orders
   const completedOrders = orders.filter(o => o.status === 'delivered');
@@ -95,8 +137,11 @@ export default function AdminPanel({
     return sum + (o.quantity * costPrice);
   }, 0);
 
-  // Total Profit = Total Sales - Cost of Delivered Sales
+  // Total Profit = Total Sales - Cost of Delivered Sales (Gross Profit)
   const totalProfit = totalSales - totalCostOfSales;
+
+  // Net Profit = Gross Profit - Other Expenses
+  const netProfit = totalProfit - totalOtherExpenses;
 
   // Potential Profit of remaining stock = sum of (stock * (sellingPrice - costPrice))
   const potentialProfit = products.reduce((sum, p) => sum + (p.stock * (p.sellingPrice - p.costPrice)), 0);
@@ -161,6 +206,72 @@ export default function AdminPanel({
     onAddStock(productId, qty);
     setAddingStockProductId(null);
     setStockToAdd('');
+  };
+
+  const handleEditProductSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct) return;
+
+    if (!editProdName.trim()) {
+      setEditFormError('পণ্যের নাম আবশ্যক!');
+      return;
+    }
+    const cost = parseFloat(editProdCostPrice);
+    const sell = parseFloat(editProdSellingPrice);
+    const stock = parseFloat(editProdStock);
+    const totalAdded = parseFloat(editProdTotalAddedQty);
+
+    if (isNaN(cost) || cost <= 0) {
+      setEditFormError('সঠিক ক্রয় মূল্য দিন!');
+      return;
+    }
+    if (isNaN(sell) || sell <= 0) {
+      setEditFormError('সঠিক বিক্রয় মূল্য দিন!');
+      return;
+    }
+    if (sell < cost) {
+      setEditFormError('বিক্রয় মূল্য অবশ্যই ক্রয় মূল্যের চেয়ে বেশি বা সমান হতে হবে!');
+      return;
+    }
+    if (isNaN(stock) || stock < 0) {
+      setEditFormError('সঠিক স্টকের পরিমান দিন!');
+      return;
+    }
+    if (isNaN(totalAdded) || totalAdded < 0) {
+      setEditFormError('সঠিক মোট যুক্ত স্টকের পরিমান দিন!');
+      return;
+    }
+
+    onEditProduct(editingProduct.id, {
+      name: editProdName.trim(),
+      category: editProdCategory,
+      unit: editProdUnit,
+      costPrice: cost,
+      sellingPrice: sell,
+      stock: stock,
+      totalAddedQuantity: totalAdded
+    });
+
+    // Reset editing state
+    setEditingProduct(null);
+  };
+
+  const handleAddExpenseSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!expenseTitle.trim()) {
+      setExpenseError('খরচের বিবরণ দিন!');
+      return;
+    }
+    const amount = parseFloat(expenseAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setExpenseError('সঠিক টাকার পরিমাণ দিন!');
+      return;
+    }
+
+    setExpenseError('');
+    onAddExpense(expenseTitle.trim(), amount);
+    setExpenseTitle('');
+    setExpenseAmount('');
   };
 
   // Filtered Products
@@ -293,48 +404,61 @@ export default function AdminPanel({
           id="dashboard-tab-content"
         >
           {/* Key Metrics Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" id="metrics-grid">
-            <div className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-xs flex items-center gap-3" id="metric-invest">
-              <div className="p-2.5 bg-slate-100 text-slate-700 rounded-md">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3" id="metrics-grid">
+            <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center gap-3" id="metric-invest">
+              <div className="p-2.5 bg-slate-100 text-slate-700 rounded-lg">
                 <DollarSign className="w-5 h-5" />
               </div>
-              <div>
-                <p className="text-[11px] font-medium text-slate-500">মোট ইনভেস্ট (ক্রয়মূল্য)</p>
-                <p className="text-xl font-extrabold text-slate-900 mt-0.5">৳ {totalInvestment.toLocaleString('bn-BD')}</p>
-                <p className="text-[9px] text-slate-400">যুক্ত করা সব পণ্যের ক্রয়মূল্য</p>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">মোট ইনভেস্ট (বিনিয়োগ)</p>
+                <p className="text-base font-black text-slate-900 mt-0.5 truncate">৳ {totalInvestment.toLocaleString('bn-BD')}</p>
+                <p className="text-[9px] text-slate-400 font-medium truncate" title={`পণ্য: ৳${totalProductInvestment.toLocaleString('bn-BD')} | খরচ: ৳${totalOtherExpenses.toLocaleString('bn-BD')}`}>
+                  পণ্য: ৳{totalProductInvestment.toLocaleString('bn-BD')} <br/> খরচ: ৳{totalOtherExpenses.toLocaleString('bn-BD')}
+                </p>
               </div>
             </div>
 
-            <div className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-xs flex items-center gap-3" id="metric-sales">
-              <div className="p-2.5 bg-slate-100 text-slate-700 rounded-md">
+            <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center gap-3" id="metric-sales">
+              <div className="p-2.5 bg-slate-100 text-slate-700 rounded-lg">
                 <TrendingUp className="w-5 h-5" />
               </div>
-              <div>
-                <p className="text-[11px] font-medium text-slate-500">মোট বিক্রয় (বিক্রয়মূল্য)</p>
-                <p className="text-xl font-extrabold text-emerald-600 mt-0.5">৳ {totalSales.toLocaleString('bn-BD')}</p>
-                <p className="text-[9px] text-slate-400">ডেলিভারি হওয়া মোট মূল্য</p>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">মোট বিক্রয় (রেভিনিউ)</p>
+                <p className="text-base font-black text-emerald-600 mt-0.5 truncate">৳ {totalSales.toLocaleString('bn-BD')}</p>
+                <p className="text-[9px] text-slate-400 font-medium mt-1 truncate">ডেলিভারি হওয়া মোট মূল্য</p>
               </div>
             </div>
 
-            <div className="bg-emerald-600 p-3.5 rounded-lg border border-emerald-700 shadow-sm flex items-center gap-3 text-white" id="metric-profit">
-              <div className="p-2.5 bg-emerald-500 text-white rounded-md">
-                <TrendingUp className="w-5 h-5" />
+            <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center gap-3" id="metric-gross-profit">
+              <div className="p-2.5 bg-slate-100 text-slate-700 rounded-lg">
+                <TrendingUp className="w-5 h-5 text-indigo-500" />
               </div>
-              <div>
-                <p className="text-[11px] font-bold text-emerald-100">মোট প্রফিট (লাভ)</p>
-                <p className="text-2xl font-black text-white mt-0.5">৳ {totalProfit.toLocaleString('bn-BD')}</p>
-                <p className="text-[9px] text-emerald-200">ডেলিভারি করা পণ্যের নিট লাভ</p>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">গ্রস প্রফিট (মোট লাভ)</p>
+                <p className="text-base font-black text-indigo-600 mt-0.5 truncate">৳ {totalProfit.toLocaleString('bn-BD')}</p>
+                <p className="text-[9px] text-slate-400 font-medium mt-1 truncate">ডেলিভারি পণ্যের লাভ</p>
               </div>
             </div>
 
-            <div className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-xs flex items-center gap-3" id="metric-pending">
-              <div className="p-2.5 bg-slate-100 text-slate-700 rounded-md">
+            <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 p-3.5 rounded-xl shadow-sm flex items-center gap-3 text-white" id="metric-net-profit">
+              <div className="p-2.5 bg-white/15 text-white rounded-lg">
+                <DollarSign className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-indigo-100 uppercase tracking-wider">নিট প্রফিট (আসল লাভ)</p>
+                <p className="text-lg font-black text-white mt-0.5 truncate">৳ {netProfit.toLocaleString('bn-BD')}</p>
+                <p className="text-[9px] text-indigo-200 font-bold mt-1 truncate">গ্রস লাভ - অন্যান্য খরচ</p>
+              </div>
+            </div>
+
+            <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center gap-3" id="metric-pending">
+              <div className="p-2.5 bg-slate-100 text-slate-700 rounded-lg">
                 <ShoppingCart className="w-5 h-5" />
               </div>
-              <div>
-                <p className="text-[11px] font-medium text-slate-500">পেন্ডিং অর্ডার ও সম্ভাব্য লাভ</p>
-                <p className="text-xl font-extrabold text-slate-900 mt-0.5">{pendingOrdersCount} টি অর্ডার</p>
-                <p className="text-[9px] text-amber-600 font-medium">স্টকের সম্ভাব্য লাভ: ৳ {potentialProfit.toLocaleString('bn-BD')}</p>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">পেন্ডিং ও সম্ভাব্য লাভ</p>
+                <p className="text-base font-black text-slate-900 mt-0.5 truncate">{pendingOrdersCount} টি অর্ডার</p>
+                <p className="text-[9px] text-amber-600 font-bold mt-1 truncate" title={`৳ ${potentialProfit.toLocaleString('bn-BD')}`}>সম্ভাব্য: ৳ {potentialProfit.toLocaleString('bn-BD')}</p>
               </div>
             </div>
           </div>
@@ -347,11 +471,11 @@ export default function AdminPanel({
                 <Layers className="w-3.5 h-3.5 text-indigo-500" />
                 ব্যবসায়িক লাভ-ক্ষতি হিসাব ও নীতি
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3" id="formula-grid">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3" id="formula-grid">
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
                   <p className="text-[11px] font-semibold text-slate-500 mb-1">১. ইনভেস্ট হিসাব</p>
                   <p className="text-xs font-bold text-slate-800">৳ {totalInvestment.toLocaleString('bn-BD')}</p>
-                  <span className="text-[10px] text-slate-400 block mt-1.5 leading-snug">যুক্ত করা সকল পণ্যের মোট ক্রয়মূল্য।</span>
+                  <span className="text-[10px] text-slate-400 block mt-1.5 leading-snug">যুক্ত করা সকল পণ্য ও অন্যান্য খরচের মোট পরিমাণ।</span>
                 </div>
                 <div className="p-3 bg-emerald-50/40 rounded-lg border border-emerald-100">
                   <p className="text-[11px] font-semibold text-emerald-800 mb-1">২. সফল বিক্রয়</p>
@@ -359,21 +483,26 @@ export default function AdminPanel({
                   <span className="text-[10px] text-slate-400 block mt-1.5 leading-snug">ডেলিভারি সম্পন্ন হওয়া অর্ডারের মোট বিক্রয়মূল্য।</span>
                 </div>
                 <div className="p-3 bg-indigo-50/40 rounded-lg border border-indigo-100">
-                  <p className="text-[11px] font-semibold text-indigo-800 mb-1">৩. অর্জিত নিট প্রফিট</p>
+                  <p className="text-[11px] font-semibold text-indigo-800 mb-1">৩. গ্রস প্রফিট (লাভ)</p>
                   <p className="text-xs font-bold text-indigo-700">৳ {totalProfit.toLocaleString('bn-BD')}</p>
-                  <span className="text-[10px] text-slate-400 block mt-1.5 leading-snug">ডেলিভারি করা পণ্য সমূহের (বিক্রয় - ক্রয়) লাভ।</span>
+                  <span className="text-[10px] text-slate-400 block mt-1.5 leading-snug">ডেলিভারি করা পণ্য সমূহের (বিক্রয় - ক্রয়) মোট লাভ।</span>
+                </div>
+                <div className="p-3 bg-violet-50 rounded-lg border border-violet-100">
+                  <p className="text-[11px] font-semibold text-violet-800 mb-1">৪. অর্জিত নিট প্রফিট</p>
+                  <p className="text-xs font-bold text-violet-700">৳ {netProfit.toLocaleString('bn-BD')}</p>
+                  <span className="text-[10px] text-slate-400 block mt-1.5 leading-snug">মোট গ্রস লাভ থেকে অন্যান্য ব্যবসার খরচ বিয়োগ করা লাভ।</span>
                 </div>
               </div>
 
               {/* Progress toward investment recovery */}
               <div className="space-y-1.5 pt-1" id="investment-progress">
                 <div className="flex justify-between text-[11px] font-bold text-slate-600">
-                  <span>ইনভেস্টমেন্ট রিকভারি অগ্রগতি</span>
+                  <span>ইনভেস্টমেন্ট রিকভারি অগ্রগতি (বিক্রয় বনাম মোট ইনভেস্ট)</span>
                   <span>{totalInvestment > 0 ? Math.round((totalSales / totalInvestment) * 100) : 0}%</span>
                 </div>
                 <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden border border-slate-200">
                   <div 
-                    className="bg-emerald-600 h-full rounded-full transition-all duration-500" 
+                    className="bg-indigo-600 h-full rounded-full transition-all duration-500" 
                     style={{ width: `${Math.min(100, totalInvestment > 0 ? (totalSales / totalInvestment) * 100 : 0)}%` }}
                   />
                 </div>
@@ -414,6 +543,129 @@ export default function AdminPanel({
                 <div className="py-2 flex justify-between items-center">
                   <span className="text-slate-500 font-medium">বাতিল হওয়া অর্ডার:</span>
                   <span className="font-bold text-rose-500">{orders.filter(o => o.status === 'cancelled').length} টি</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* New Section: Manage Other Expenses (ইনভেস্ট ও আদার্স খরচ পরিচালনা) */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4" id="manage-expenses-section">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-rose-500" />
+                  ইনভেস্ট ও আদার্স খরচ পরিচালনা (Manage Other Business Expenses)
+                </h3>
+                <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                  ব্যবসার অন্যান্য বিনিয়োগ সংক্রান্ত খরচসমূহ (যেমন প্যাকেজিং, পরিবহন, বিদ্যুৎ বিল ইত্যাদি) এখানে যুক্ত করুন যাতে নিট প্রফিট হিসাব সহজ হয়।
+                </p>
+              </div>
+              <div className="bg-rose-50 px-3 py-1 text-rose-700 font-extrabold text-xs rounded-xl border border-rose-100 flex items-center gap-1">
+                <span>মোট আদার্স খরচ:</span>
+                <span className="text-sm">৳ {totalOtherExpenses.toLocaleString('bn-BD')}</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5" id="expenses-internal-grid">
+              {/* Form Column */}
+              <div className="lg:col-span-4 bg-slate-50/50 p-4 rounded-xl border border-slate-100 space-y-3">
+                <h4 className="text-[11px] font-black text-slate-700 uppercase tracking-wider flex items-center gap-1">
+                  <PlusCircle className="w-3.5 h-3.5 text-indigo-600" />
+                  নতুন খরচ যুক্ত করুন
+                </h4>
+
+                <form onSubmit={handleAddExpenseSubmit} className="space-y-3" id="add-expense-form">
+                  {expenseError && (
+                    <div className="p-2.5 bg-rose-50 border border-rose-100 text-rose-600 text-[10px] font-bold rounded-lg flex items-center gap-1.5" id="expense-error">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse"></span>
+                      {expenseError}
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 mb-1">খরচের বিবরণ / নাম <span className="text-rose-500">*</span></label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="যেমন: প্যাকেজিং কার্টন, ডেলিভারি চার্জ ইত্যাদি"
+                      value={expenseTitle}
+                      onChange={(e) => setExpenseTitle(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-indigo-500 font-medium placeholder-slate-400"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 mb-1">টাকার পরিমাণ (৳) <span className="text-rose-500">*</span></label>
+                    <input
+                      type="number"
+                      required
+                      min="0.1"
+                      step="any"
+                      placeholder="টাকার পরিমাণ লিখুন"
+                      value={expenseAmount}
+                      onChange={(e) => setExpenseAmount(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-indigo-500 font-bold text-rose-600 placeholder-slate-400"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    খরচ যুক্ত করুন
+                  </button>
+                </form>
+              </div>
+
+              {/* List Table Column */}
+              <div className="lg:col-span-8 flex flex-col justify-between" id="expenses-list-column">
+                <div className="overflow-hidden border border-slate-100 rounded-xl bg-white">
+                  <div className="overflow-x-auto max-h-[220px]">
+                    <table className="w-full text-left border-collapse" id="expenses-table">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                          <th className="px-3.5 py-2.5">খরচের বিবরণ</th>
+                          <th className="px-3.5 py-2.5">টাকার পরিমাণ</th>
+                          <th className="px-3.5 py-2.5">যুক্ত করার তারিখ</th>
+                          <th className="px-3.5 py-2.5 text-right">অ্যাকশন</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-xs text-slate-600">
+                        {expenses.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="text-center py-10 text-[11px] text-slate-400 font-semibold italic">
+                              কোনো আদার্স খরচ যুক্ত করা হয়নি।
+                            </td>
+                          </tr>
+                        ) : (
+                          expenses.map((exp) => (
+                            <tr key={exp.id} className="hover:bg-slate-50/50 transition-colors">
+                              <td className="px-3.5 py-2.5 font-bold text-slate-900">{exp.title}</td>
+                              <td className="px-3.5 py-2.5 font-bold text-rose-600">৳ {exp.amount.toLocaleString('bn-BD')}</td>
+                              <td className="px-3.5 py-2.5 font-medium text-slate-400 text-[10px]">
+                                {new Date(exp.createdAt).toLocaleDateString('bn-BD', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric'
+                                })}
+                              </td>
+                              <td className="px-3.5 py-2.5 text-right">
+                                <button
+                                  type="button"
+                                  onClick={() => onDeleteExpense(exp.id)}
+                                  className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                  title="মুছে ফেলুন"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </div>
@@ -782,6 +1034,13 @@ export default function AdminPanel({
                                     স্টক বাড়ান
                                   </button>
                                   <button
+                                    onClick={() => startEditingProduct(prod)}
+                                    className="p-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-600 rounded-lg transition-all duration-150 cursor-pointer"
+                                    title="সংশোধন করুন"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
                                     onClick={() => {
                                       setDeletingProductId(prod.id);
                                     }}
@@ -911,6 +1170,13 @@ export default function AdminPanel({
                                     >
                                       <Plus className="w-2.5 h-2.5" />
                                       স্টক বাড়ান
+                                    </button>
+                                    <button
+                                      onClick={() => startEditingProduct(prod)}
+                                      className="p-1 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-600 rounded transition-all duration-150 cursor-pointer"
+                                      title="সংশোধন করুন"
+                                    >
+                                      <Edit2 className="w-3 h-3" />
                                     </button>
                                     <button
                                       onClick={() => {
@@ -1554,6 +1820,181 @@ export default function AdminPanel({
           </div>
         </motion.div>
       )}
+
+      {/* Beautiful and Clean Edit Product Modal Overlay */}
+      <AnimatePresence>
+        {editingProduct && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto" id="edit-product-modal-backdrop">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.2 }}
+              className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-lg w-full overflow-hidden flex flex-col my-8"
+              id="edit-product-modal-card"
+            >
+              {/* Header */}
+              <div className="bg-slate-50 border-b border-slate-100 px-6 py-4 flex justify-between items-center" id="edit-modal-header">
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+                    <Edit2 className="w-4 h-4 text-indigo-600" />
+                    পণ্য সংশোধন করুন (Edit Product)
+                  </h3>
+                  <p className="text-[10px] text-slate-500 font-semibold mt-0.5">পণ্যের সকল বিবরণ সাবধানে আপডেট করুন</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingProduct(null)}
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Form */}
+              <form onSubmit={handleEditProductSubmit} className="p-6 space-y-4" id="edit-modal-form">
+                {editFormError && (
+                  <div className="p-3 bg-rose-50 border border-rose-100 text-rose-600 text-xs font-bold rounded-xl flex items-center gap-2" id="edit-form-error">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse"></span>
+                    {editFormError}
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">পণ্যের নাম (বাংলায়) <span className="text-rose-500">*</span></label>
+                    <input
+                      type="text"
+                      required
+                      value={editProdName}
+                      onChange={(e) => setEditProdName(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-white focus:outline-none focus:border-indigo-500 font-medium"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">ক্যাটাগরি</label>
+                      <select
+                        value={editProdCategory}
+                        onChange={(e) => setEditProdCategory(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-indigo-500 font-medium"
+                      >
+                        {categories.map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">পরিমাপের একক</label>
+                      <div className="grid grid-cols-2 bg-slate-100 p-0.5 rounded-xl border border-slate-200">
+                        <button
+                          type="button"
+                          onClick={() => setEditProdUnit('kg')}
+                          className={`py-1.5 rounded-lg text-[10px] font-bold transition-all duration-150 ${
+                            editProdUnit === 'kg' 
+                              ? 'bg-white text-slate-900 shadow-xs' 
+                              : 'text-slate-500 hover:text-slate-900'
+                          }`}
+                        >
+                          কেজি (kg)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditProdUnit('piece')}
+                          className={`py-1.5 rounded-lg text-[10px] font-bold transition-all duration-150 ${
+                            editProdUnit === 'piece' 
+                              ? 'bg-white text-slate-900 shadow-xs' 
+                              : 'text-slate-500 hover:text-slate-900'
+                          }`}
+                        >
+                          পিস / সংখ্যা
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">ক্রয় মূল্য (৳) <span className="text-rose-500">*</span></label>
+                      <input
+                        type="number"
+                        required
+                        min="0"
+                        step="any"
+                        value={editProdCostPrice}
+                        onChange={(e) => setEditProdCostPrice(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-white focus:outline-none focus:border-indigo-500 font-medium"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">বিক্রয় মূল্য (৳) <span className="text-rose-500">*</span></label>
+                      <input
+                        type="number"
+                        required
+                        min="0"
+                        step="any"
+                        value={editProdSellingPrice}
+                        onChange={(e) => setEditProdSellingPrice(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-white focus:outline-none focus:border-indigo-500 font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">অবশিষ্ট স্টক <span className="text-rose-500">*</span></label>
+                      <input
+                        type="number"
+                        required
+                        min="0"
+                        step="any"
+                        value={editProdStock}
+                        onChange={(e) => setEditProdStock(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-white focus:outline-none focus:border-indigo-500 font-bold text-indigo-700"
+                      />
+                      <span className="text-[9px] text-slate-400 block mt-1 leading-normal">স্টকে থাকা বর্তমান পরিমাণ</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">মোট যুক্ত স্টক <span className="text-rose-500">*</span></label>
+                      <input
+                        type="number"
+                        required
+                        min="0"
+                        step="any"
+                        value={editProdTotalAddedQty}
+                        onChange={(e) => setEditProdTotalAddedQty(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-white focus:outline-none focus:border-indigo-500 font-bold text-slate-700"
+                      />
+                      <span className="text-[9px] text-slate-400 block mt-1 leading-normal">মোট কেনা/বিনিয়োগ করা স্টক</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer buttons */}
+                <div className="flex gap-3 pt-4 border-t border-slate-100" id="edit-modal-footer">
+                  <button
+                    type="button"
+                    onClick={() => setEditingProduct(null)}
+                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer text-center"
+                  >
+                    বাতিল করুন
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-xl transition-colors cursor-pointer text-center shadow-xs"
+                  >
+                    তথ্য সংরক্ষণ করুন
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

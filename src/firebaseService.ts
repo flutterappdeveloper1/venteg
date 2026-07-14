@@ -13,13 +13,14 @@ import {
   getDoc,
   orderBy
 } from 'firebase/firestore';
-import { Product, Order, SubAdmin } from './types';
+import { Product, Order, SubAdmin, Expense } from './types';
 import { INITIAL_PRODUCTS, INITIAL_ORDERS } from './initialData';
 
 // Firestore collections references
 const productsCol = collection(db, 'products');
 const ordersCol = collection(db, 'orders');
 const subAdminsCol = collection(db, 'subAdmins');
+const expensesCol = collection(db, 'expenses');
 
 // --- SEED DATA FUNCTION ---
 export async function seedDatabaseIfEmpty() {
@@ -91,6 +92,11 @@ export async function updateProductStock(productId: string, newStock: number, to
 
 export async function deleteProduct(productId: string) {
   await deleteDoc(doc(productsCol, productId));
+}
+
+export async function updateProduct(productId: string, updatedFields: Partial<Product>) {
+  const docRef = doc(productsCol, productId);
+  await updateDoc(docRef, updatedFields);
 }
 
 // --- ORDERS API ---
@@ -174,6 +180,14 @@ export async function resetFirestoreData() {
   });
   await orderBatch.commit();
 
+  // Delete all expenses
+  const expensesSnap = await getDocs(expensesCol);
+  const expenseBatch = writeBatch(db);
+  expensesSnap.forEach((doc) => {
+    expenseBatch.delete(doc.ref);
+  });
+  await expenseBatch.commit();
+
   // Re-seed
   await seedDatabaseIfEmpty();
 }
@@ -250,4 +264,27 @@ export function subscribeNotifications(callback: (notifications: NotificationLog
     console.error('Error subscribing to notifications:', err);
   });
 }
+
+// --- EXPENSES API ---
+export function subscribeExpenses(callback: (expenses: Expense[]) => void) {
+  const q = query(expensesCol, orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const expenses: Expense[] = [];
+    snapshot.forEach((doc) => {
+      expenses.push(doc.data() as Expense);
+    });
+    callback(expenses);
+  }, (err) => {
+    console.error('Error subscribing to expenses:', err);
+  });
+}
+
+export async function addExpense(expense: Expense) {
+  await setDoc(doc(expensesCol, expense.id), expense);
+}
+
+export async function deleteExpense(expenseId: string) {
+  await deleteDoc(doc(expensesCol, expenseId));
+}
+
 

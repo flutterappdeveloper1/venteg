@@ -46,3 +46,12 @@ export interface SalesRecord {
   profit: number;
   date: string;
 }
+
+export interface Expense {
+  id: string;
+  title: string;
+  amount: number;
+  createdAt: string;
+  addedBy: string;
+}
+

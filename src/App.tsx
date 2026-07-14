@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Product, Order, SubAdmin } from './types';
+import { Product, Order, SubAdmin, Expense } from './types';
 import AdminPanel from './components/AdminPanel';
 import CustomerPanel from './components/CustomerPanel';
 import AuthModal from './components/AuthModal';
@@ -10,9 +10,11 @@ import {
   subscribeProducts,
   subscribeOrders,
   subscribeSubAdmins,
+  subscribeExpenses,
   addProduct,
   updateProductStock,
   deleteProduct,
+  updateProduct,
   addOrder,
   updateOrderStatus,
   addSubAdmin,
@@ -21,6 +23,8 @@ import {
   addNotificationLog,
   subscribeNotifications,
   saveTokenToFirestore,
+  addExpense,
+  deleteExpense,
   NotificationLog
 } from './firebaseService';
 import { 
@@ -34,6 +38,7 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [subAdmins, setSubAdmins] = useState<SubAdmin[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   const [activeTab, setActiveTab] = useState<'customer' | 'admin'>('customer');
@@ -82,6 +87,11 @@ export default function App() {
     // 5. Sub-admins real-time subscription
     const unsubSubAdmins = subscribeSubAdmins((data) => {
       setSubAdmins(data);
+    });
+
+    // 5.5 Expenses real-time subscription
+    const unsubExpenses = subscribeExpenses((data) => {
+      setExpenses(data);
     });
 
     // 6. Notifications real-time subscription with live Toast triggers
@@ -155,6 +165,7 @@ export default function App() {
       unsubProducts();
       unsubOrders();
       unsubSubAdmins();
+      unsubExpenses();
       unsubNotifications();
     };
   }, [isMainAdmin, isSubAdmin, soundEnabled]);
@@ -249,6 +260,53 @@ export default function App() {
       }
     }
   };
+
+  // Edit product details
+  const handleEditProduct = async (productId: string, updatedFields: Partial<Product>) => {
+    try {
+      await updateProduct(productId, updatedFields);
+      alert("পণ্যটি সফলভাবে সংশোধন করা হয়েছে! 📝");
+    } catch (error: any) {
+      console.error("Error editing product: ", error);
+      if (error.code === 'permission-denied' || (error.message && error.message.includes('permission'))) {
+        alert(
+          "দুঃখিত! পণ্যটি সংশোধন করতে ফায়ারবেস পারমিশন বাধা দিচ্ছে (Permission Denied)।\n\n" +
+          "সমাধানের জন্য অনুগ্রহ করে Firebase Console-এ যান (https://console.firebase.google.com/) এবং:\n" +
+          "Rules ট্যাবে রিড ও রাইট পারমিশন চেক করুন।"
+        );
+      } else {
+        alert(`পণ্যটি সংশোধন করতে সমস্যা হয়েছে: ${error.message || error}`);
+      }
+    }
+  };
+
+  // Add other expense
+  const handleAddExpense = async (title: string, amount: number) => {
+    try {
+      const newExpense: Expense = {
+        id: 'exp-' + Date.now(),
+        title: title.trim(),
+        amount: amount,
+        createdAt: new Date().toISOString(),
+        addedBy: currentUser?.email || 'admin'
+      };
+      await addExpense(newExpense);
+    } catch (error: any) {
+      console.error("Error adding expense: ", error);
+      alert(`খরচ যুক্ত করতে সমস্যা হয়েছে: ${error.message || error}`);
+    }
+  };
+
+  // Delete expense
+  const handleDeleteExpense = async (expenseId: string) => {
+    try {
+      await deleteExpense(expenseId);
+    } catch (error: any) {
+      console.error("Error deleting expense: ", error);
+      alert(`খরচ মুছতে সমস্যা হয়েছে: ${error.message || error}`);
+    }
+  };
+
 
   // Update order status (and handle inventory changes)
   const handleUpdateOrderStatus = async (orderId: string, status: 'delivered' | 'cancelled') => {
@@ -602,6 +660,7 @@ export default function App() {
                   onAddProduct={handleAddProduct}
                   onAddStock={handleAddStock}
                   onDeleteProduct={handleDeleteProduct}
+                  onEditProduct={handleEditProduct}
                   onUpdateOrderStatus={handleUpdateOrderStatus}
                   onResetData={handleResetData}
                   onAddSubAdmin={handleAddSubAdmin}
@@ -611,6 +670,9 @@ export default function App() {
                   onRegisterPush={handleRegisterPush}
                   soundEnabled={soundEnabled}
                   onToggleSound={() => setSoundEnabled(!soundEnabled)}
+                  expenses={expenses}
+                  onAddExpense={handleAddExpense}
+                  onDeleteExpense={handleDeleteExpense}
                 />
               ) : (
                 /* Beautiful restricted access state */
