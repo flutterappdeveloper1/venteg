@@ -37,10 +37,16 @@ export default function CustomerPanel({ products, orders, onPlaceOrder, currentU
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
   const [checkoutError, setCheckoutError] = useState('');
 
-  // Pre-populate name if logged in
+  // Pre-populate name and phone if logged in
   React.useEffect(() => {
-    if (currentUser && currentUser.displayName) {
-      setCustName(currentUser.displayName);
+    if (currentUser) {
+      if (currentUser.displayName) {
+        setCustName(currentUser.displayName);
+      }
+      if (currentUser.email && currentUser.email.endsWith('@phone.venteg')) {
+        const phoneNum = currentUser.email.replace('@phone.venteg', '');
+        setCustPhone(phoneNum);
+      }
     }
   }, [currentUser, selectedProduct]);
 

@@ -4,9 +4,11 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signOut,
-  updateProfile
+  updateProfile,
+  GoogleAuthProvider,
+  signInWithPopup
 } from 'firebase/auth';
-import { X, Mail, Lock, User, LogIn, UserPlus, AlertCircle, Shield } from 'lucide-react';
+import { X, Mail, Lock, User, LogIn, UserPlus, AlertCircle, Shield, Phone } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface AuthModalProps {
@@ -16,15 +18,36 @@ interface AuthModalProps {
 
 export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(''); // This serves as either Email or Phone Number input
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const [showAdminHint, setShowAdminHint] = useState(false);
-
   if (!isOpen) return null;
+
+  const handleGoogleSignIn = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+      onClose();
+    } catch (err: any) {
+      console.error(err);
+      if (err.code === 'auth/popup-blocked') {
+        setError('পপআপ উইন্ডোটি ব্লক করা হয়েছে! দয়া করে ব্রাউজার পপআপ অনুমতি (Allow) দিন এবং আবার চেষ্টা করুন।');
+      } else if (err.code === 'auth/cancelled-popup-request') {
+        setError('লগইন পপআপটি বন্ধ করা হয়েছে।');
+      } else if (err.code === 'auth/operation-not-allowed') {
+        setError('গুগল সাইন-ইন নিষ্ক্রিয় করা আছে। দয়া করে ফায়ারবেস কনসোল থেকে এটি সচল করুন।');
+      } else {
+        setError(`গুগল দিয়ে লগইন করতে সমস্যা হয়েছে (ত্রুটি: ${err.code || err.message || 'unknown'})।`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,9 +66,28 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
       return;
     }
 
-    const lowerEmail = email.toLowerCase().trim();
+    // Convert Bengali digits to English digits
+    const bnToEn = (str: string) => {
+      const banglaDigits: { [key: string]: string } = {
+        '০':'0','১':'1','২':'2','৩':'3','৪':'4','৫':'5','৬':'6','৭':'7','৮':'8','৯':'9'
+      };
+      return str.replace(/[০-৯]/g, (digit) => banglaDigits[digit] || digit);
+    };
 
-    if (lowerEmail === 'ventegksy@gmail.com') {
+    let processedEmail = bnToEn(email).toLowerCase().trim();
+
+    // If input doesn't have an @, treat it as a phone number
+    if (!processedEmail.includes('@')) {
+      const cleaned = processedEmail.replace(/[\s-()]/g, '');
+      if (cleaned.length < 6 || !/^\+?\d+$/.test(cleaned)) {
+        setError('অনুগ্রহ করে সঠিক ইমেইল এড্রেস অথবা মোবাইল নম্বর প্রদান করুন!');
+        setLoading(false);
+        return;
+      }
+      processedEmail = `${cleaned}@phone.venteg`;
+    }
+
+    if (processedEmail === 'ventegksy@gmail.com') {
       if (isSignUp) {
         setError('দুঃখিত, এই ইমেইলটি শুধুমাত্র অ্যাডমিনের জন্য সংরক্ষিত এবং এতে সাইন-আপ করা যাবে না!');
         setLoading(false);
@@ -61,26 +103,26 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     try {
       if (isSignUp) {
         // Sign Up
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential = await createUserWithEmailAndPassword(auth, processedEmail, password);
         await updateProfile(userCredential.user, {
           displayName: name
         });
       } else {
         // Log In
-        await signInWithEmailAndPassword(auth, email, password);
+        await signInWithEmailAndPassword(auth, processedEmail, password);
       }
       onClose();
     } catch (err: any) {
       console.error(err);
       let errorMsg = '';
       if (err.code === 'auth/email-already-in-use') {
-        errorMsg = 'এই ইমেইলটি ইতিপূর্বে ব্যবহার করা হয়েছে!';
+        errorMsg = 'এই ইমেইল অথবা মোবাইল নম্বরটি ইতিপূর্বে ব্যবহার করা হয়েছে!';
       } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
-        errorMsg = 'ইমেইল অথবা পাসওয়ার্ডটি সঠিক নয়!';
+        errorMsg = 'ইমেইল/মোবাইল নম্বর অথবা পাসওয়ার্ডটি সঠিক নয়!';
       } else if (err.code === 'auth/weak-password') {
         errorMsg = 'পাসওয়ার্ড অবশ্যই কমপক্ষে ৬ অক্ষরের হতে হবে!';
       } else if (err.code === 'auth/invalid-email') {
-        errorMsg = 'সঠিক ইমেইল এড্রেস প্রদান করুন!';
+        errorMsg = 'সঠিক ইমেইল এড্রেস অথবা মোবাইল নম্বর প্রদান করুন!';
       } else if (err.code === 'auth/operation-not-allowed') {
         errorMsg = 'আপনার ফায়ারবেস কনসোলে ইমেইল ও পাসওয়ার্ড সাইন-ইন পদ্ধতি নিষ্ক্রিয় (Disabled) রয়েছে। অনুগ্রহ করে Firebase Console-এ গিয়ে Build > Authentication > Sign-in method থেকে Email/Password চালু (Enable) করুন।';
       } else {
@@ -148,12 +190,16 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
           )}
 
           <div className="space-y-1">
-            <label className="block text-[11px] font-bold text-slate-600">ইমেইল এড্রেস <span className="text-rose-500">*</span></label>
+            <label className="block text-[11px] font-bold text-slate-600">ইমেইল অথবা মোবাইল নম্বর <span className="text-rose-500">*</span></label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              {email.trim() !== '' && /^[০-৯0-9+]/.test(email.trim()) ? (
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 animate-fade-in" />
+              ) : (
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 animate-fade-in" />
+              )}
               <input
-                type="email"
-                placeholder="example@gmail.com"
+                type="text"
+                placeholder="যেমন: example@gmail.com অথবা 017xxxxxxxx"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:outline-none focus:border-slate-500 font-medium"
@@ -175,48 +221,6 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             </div>
           </div>
 
-          {showAdminHint ? (
-            <div className="p-3 bg-slate-50 border border-slate-100 rounded-lg space-y-1.5" id="admin-credentials-hint">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-slate-700">🔐 অ্যাডমিন লগইন তথ্য:</span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsSignUp(false);
-                      setEmail('ventegksy@gmail.com');
-                      setPassword('@Venteg$ksy321@');
-                    }}
-                    className="text-[10px] font-extrabold text-indigo-600 hover:text-indigo-700 cursor-pointer bg-indigo-50 px-1.5 py-0.5 rounded transition-colors"
-                  >
-                    অটো-ফিল করুন
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowAdminHint(false)}
-                    className="text-[10px] font-bold text-slate-400 hover:text-slate-600 cursor-pointer"
-                  >
-                    লুকান
-                  </button>
-                </div>
-              </div>
-              <div className="text-[9px] text-slate-500 font-medium space-y-0.5 leading-normal">
-                <p><strong>ইমেইল:</strong> ventegksy@gmail.com</p>
-                <p><strong>পাসওয়ার্ড:</strong> @Venteg$ksy321@</p>
-              </div>
-            </div>
-          ) : (
-            <div className="text-right" id="admin-credentials-toggle-container">
-              <button
-                type="button"
-                onClick={() => setShowAdminHint(true)}
-                className="text-[10px] text-slate-400 hover:text-slate-600 underline font-semibold cursor-pointer transition-colors"
-              >
-                🔐 ডেমো অ্যাডমিন লগইন তথ্য দেখতে এখানে ক্লিক করুন
-              </button>
-            </div>
-          )}
-
           <button
             type="submit"
             disabled={loading}
@@ -235,6 +239,40 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 লগইন করুন
               </>
             )}
+          </button>
+
+          {/* Google Login Option */}
+          <div className="relative flex py-1 items-center" id="auth-divider">
+            <div className="flex-grow border-t border-slate-100"></div>
+            <span className="flex-shrink mx-3 text-[10px] font-bold text-slate-400 uppercase">অথবা</span>
+            <div className="flex-grow border-t border-slate-100"></div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-700 font-extrabold py-2 px-4 border border-slate-200 rounded-lg text-xs transition-colors duration-150 cursor-pointer shadow-2xs"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24">
+              <path
+                fill="#4285F4"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+              />
+            </svg>
+            গুগল দিয়ে লগইন করুন
           </button>
 
           {/* Toggle Link */}

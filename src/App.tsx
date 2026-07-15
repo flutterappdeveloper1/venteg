@@ -528,7 +528,9 @@ export default function App() {
             {currentUser ? (
               <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 py-1 pl-2 pr-1.5 rounded-lg text-[11px] font-bold text-slate-600" id="user-info-pill">
                 <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></div>
-                <span className="max-w-[120px] sm:max-w-none truncate">{currentUser.displayName || currentUser.email}</span>
+                <span className="max-w-[120px] sm:max-w-none truncate">
+                  {currentUser.displayName || (currentUser.email && currentUser.email.endsWith('@phone.venteg') ? currentUser.email.replace('@phone.venteg', '') : currentUser.email)}
+                </span>
                 {isMainAdmin && (
                   <span className="bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded-sm">মেইন এডমিন</span>
                 )}
