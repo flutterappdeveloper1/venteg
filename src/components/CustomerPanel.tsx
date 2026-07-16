@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   ShoppingBag, Search, Plus, Minus, Truck, CreditCard, CheckCircle2, 
-  ArrowRight, Clock, User, Phone, MapPin, Sparkles, Filter, Home
+  ArrowRight, Clock, User, Phone, MapPin, Sparkles, Filter, Home, Smartphone
 } from 'lucide-react';
 import { Product, Order, PaymentMethod } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -145,7 +145,7 @@ export default function CustomerPanel({ products, orders, onPlaceOrder, currentU
           <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">আপনার প্রয়োজনীয় নিত্যদিনের বাজার এখন অনলাইনে!</h2>
           <p className="text-xs sm:text-sm text-emerald-50 font-medium">নিচের পণ্য গ্যালারি থেকে পছন্দের পণ্য বেছে নিয়ে খুব সহজে অর্ডার করুন। দ্রুততম সময়ে আপনার ঠিকানায় ডেলিভারি পৌঁছে যাবে!</p>
           
-          <div className="flex gap-3 pt-2" id="customer-view-toggle">
+          <div className="flex flex-wrap gap-2.5 pt-2" id="customer-view-toggle">
             <button
               onClick={() => setActiveCustomerView('shop')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
@@ -171,6 +171,18 @@ export default function CustomerPanel({ products, orders, onPlaceOrder, currentU
                 </span>
               )}
             </button>
+            
+            {/* Go to App Option */}
+            <a
+              href="https://drive.google.com/file/d/187r-DMkQCJQEZSeQkM_rvLx8FPhlAjEo/view?usp=sharing"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 bg-white/15 hover:bg-white/25 text-white flex items-center gap-1.5 border border-white/10 cursor-pointer hover:scale-[1.02] active:scale-95 shadow-2xs"
+              id="go-to-app-banner-link"
+            >
+              <Smartphone className="w-3.5 h-3.5 text-emerald-100" />
+              Go to App
+            </a>
           </div>
         </div>
       </div>

@@ -29,7 +29,8 @@ import {
 } from './firebaseService';
 import { 
   Store, ShieldCheck, ShoppingBag, Info, LogIn, LogOut, Lock, 
-  UserCheck, ShieldAlert, Bell, BellRing, Volume2, VolumeX, X, Copy, CheckCheck
+  UserCheck, ShieldAlert, Bell, BellRing, Volume2, VolumeX, X, Copy, CheckCheck,
+  Smartphone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -523,6 +524,19 @@ export default function App() {
 
           {/* User Auth Status / Control */}
           <div className="flex flex-wrap items-center gap-2" id="header-controls">
+            
+            {/* Go to App Option */}
+            <a
+              href="https://drive.google.com/file/d/187r-DMkQCJQEZSeQkM_rvLx8FPhlAjEo/view?usp=sharing"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold px-3 py-1.5 rounded-lg text-[11px] transition-all duration-150 shadow-xs border border-indigo-500/10 cursor-pointer hover:scale-[1.02] active:scale-95"
+              id="go-to-app-header-link"
+              title="আমাদের মোবাইল অ্যাপ ডাউনলোড করুন"
+            >
+              <Smartphone className="w-3.5 h-3.5 text-indigo-100 animate-pulse" />
+              <span>Go to App</span>
+            </a>
             
             {/* Logged in info */}
             {currentUser ? (
