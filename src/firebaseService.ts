@@ -287,4 +287,50 @@ export async function deleteExpense(expenseId: string) {
   await deleteDoc(doc(expensesCol, expenseId));
 }
 
+// --- CATEGORIES API ---
+const categoriesCol = collection(db, 'categories');
+
+export function subscribeCategories(callback: (categories: string[]) => void) {
+  return onSnapshot(categoriesCol, (snapshot) => {
+    const cats: string[] = [];
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      if (data && data.name) {
+        cats.push(data.name);
+      }
+    });
+    
+    // If empty in Firestore, use default fallback categories
+    if (cats.length === 0) {
+      callback(['মিষ্টি জাতীয়', 'কোমল পানীয়', 'অন্যান্য']);
+    } else {
+      // Sort alphabetically or keep a custom order, putting 'অন্যান্য' at the end
+      const hasOthers = cats.includes('অন্যান্য');
+      const filtered = cats.filter(c => c !== 'অন্যান্য');
+      filtered.sort();
+      if (hasOthers) {
+        filtered.push('অন্যান্য');
+      } else {
+        filtered.push('অন্যান্য'); // Always ensure "অন্যান্য" is at the end
+      }
+      callback(filtered);
+    }
+  }, (err) => {
+    console.error('Error subscribing to categories:', err);
+  });
+}
+
+export async function addCategory(categoryName: string) {
+  const docId = categoryName.trim();
+  if (!docId) return;
+  await setDoc(doc(categoriesCol, docId), { name: docId, createdAt: new Date().toISOString() });
+}
+
+export async function deleteCategory(categoryName: string) {
+  const docId = categoryName.trim();
+  if (!docId) return;
+  await deleteDoc(doc(categoriesCol, docId));
+}
+
+
 

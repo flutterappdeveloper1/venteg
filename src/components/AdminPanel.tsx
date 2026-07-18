@@ -28,6 +28,9 @@ interface AdminPanelProps {
   expenses?: Expense[];
   onAddExpense?: (title: string, amount: number) => void;
   onDeleteExpense?: (expenseId: string) => void;
+  categories: string[];
+  onAddCategory: (categoryName: string) => Promise<void>;
+  onDeleteCategory: (categoryName: string) => Promise<void>;
 }
 
 export default function AdminPanel({
@@ -50,7 +53,10 @@ export default function AdminPanel({
   onToggleSound,
   expenses = [],
   onAddExpense = () => {},
-  onDeleteExpense = () => {}
+  onDeleteExpense = () => {},
+  categories,
+  onAddCategory,
+  onDeleteCategory
 }: AdminPanelProps) {
   // Tabs within Admin Panel
   const [activeAdminTab, setActiveAdminTab] = useState<'dashboard' | 'products' | 'orders' | 'subadmins' | 'notifications'>('dashboard');
@@ -111,8 +117,16 @@ export default function AdminPanel({
   const [removingSubAdminEmail, setRemovingSubAdminEmail] = useState<string | null>(null);
   const [confirmingReset, setConfirmingReset] = useState<boolean>(false);
 
-  // Categories
-  const categories = ['মিষ্টি জাতীয়', 'কোমল পানীয়', 'অন্যান্য'];
+  // Category manager states
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const [newCategoryInput, setNewCategoryInput] = useState('');
+
+  // Keep selected new product category in sync with available categories
+  React.useEffect(() => {
+    if (categories && categories.length > 0 && !categories.includes(newProdCategory)) {
+      setNewProdCategory(categories[0]);
+    }
+  }, [categories, newProdCategory]);
 
   // Financial Calculations
   // Total Product Invest = sum of (totalAddedQuantity * costPrice) for all products
@@ -432,38 +446,6 @@ export default function AdminPanel({
             🔔 নোটিফিকেশন ও পুশ
           </button>
         </div>
-
-        {confirmingReset ? (
-          <div className="flex items-center gap-1.5 bg-rose-50 px-2.5 py-1.2 rounded-lg border border-rose-200" id="reset-confirm-box">
-            <span className="text-[10px] font-bold text-rose-700">রিসেট করতে চান?</span>
-            <button
-              onClick={() => {
-                onResetData();
-                setConfirmingReset(false);
-              }}
-              className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-2 py-1 rounded text-[10px] cursor-pointer"
-            >
-              হ্যাঁ
-            </button>
-            <button
-              onClick={() => setConfirmingReset(false)}
-              className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-2 py-1 rounded text-[10px] cursor-pointer"
-            >
-              না
-            </button>
-          </div>
-        ) : (
-          <button
-            id="btn-reset-demo"
-            onClick={() => {
-              setConfirmingReset(true);
-            }}
-            className="flex items-center gap-1 px-2.5 py-1.2 border border-dashed border-slate-200 text-[11px] text-slate-500 rounded-lg hover:bg-slate-100 hover:text-rose-600 hover:border-rose-200 transition-all duration-150"
-          >
-            <RefreshCw className="w-3 h-3" />
-            ডেমো ডাটা রিসেট
-          </button>
-        )}
       </div>
 
       {/* DASHBOARD TAB */}
@@ -864,27 +846,49 @@ export default function AdminPanel({
                 <h3 className="text-sm font-bold text-slate-900">পণ্যের তালিকা এবং যুক্ত করার প্যানেল</h3>
                 <p className="text-xs text-slate-400 mt-0.5">নতুন পণ্য যুক্ত করুন এবং স্টকের পরিমাণ ও বিক্রয়মূল্য নিয়ন্ত্রণ করুন</p>
               </div>
-              <button
-                id="btn-toggle-add-form"
-                onClick={() => setShowAddForm(!showAddForm)}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150 ${
-                  showAddForm 
-                    ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' 
-                    : 'bg-slate-900 text-white shadow-xs hover:bg-slate-800'
-                }`}
-              >
-                {showAddForm ? (
-                  <>
-                    <X className="w-3.5 h-3.5" />
-                    ফরম বন্ধ করুন
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-3.5 h-3.5" />
-                    নতুন পণ্য যোগ করুন
-                  </>
-                )}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  id="btn-toggle-category-manager"
+                  onClick={() => {
+                    setShowCategoryManager(!showCategoryManager);
+                    if (showAddForm) setShowAddForm(false);
+                  }}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150 border ${
+                    showCategoryManager 
+                      ? 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100' 
+                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-xs'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  ক্যাটাগরি পরিচালনা
+                </button>
+                <button
+                  type="button"
+                  id="btn-toggle-add-form"
+                  onClick={() => {
+                    setShowAddForm(!showAddForm);
+                    if (showCategoryManager) setShowCategoryManager(false);
+                  }}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150 ${
+                    showAddForm 
+                      ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' 
+                      : 'bg-slate-900 text-white shadow-xs hover:bg-slate-800'
+                  }`}
+                >
+                  {showAddForm ? (
+                    <>
+                      <X className="w-3.5 h-3.5" />
+                      ফরম বন্ধ করুন
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-3.5 h-3.5" />
+                      নতুন পণ্য যোগ করুন
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
             <AnimatePresence>
@@ -1001,6 +1005,93 @@ export default function AdminPanel({
                     </button>
                   </div>
                 </motion.form>
+              )}
+
+              {showCategoryManager && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden mt-3 pt-3 border-t border-slate-150 animate-duration-150"
+                  id="category-manager-container"
+                >
+                  <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-150 grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {/* Add Category Form */}
+                    <div className="space-y-3">
+                      <h4 className="text-[11px] font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                        <PlusCircle className="w-3.5 h-3.5 text-indigo-600" />
+                        নতুন পণ্য ক্যাটাগরি যোগ করুন
+                      </h4>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          required
+                          placeholder="যেমন: মসলা ও তেল, ফলমূল ইত্যাদি"
+                          value={newCategoryInput}
+                          onChange={(e) => setNewCategoryInput(e.target.value)}
+                          className="flex-1 px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-indigo-500 font-bold placeholder-slate-400"
+                        />
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const val = newCategoryInput.trim();
+                            if (!val) {
+                              alert('ক্যাটাগরি নাম লিখুন!');
+                              return;
+                            }
+                            if (categories.includes(val)) {
+                              alert('এই ক্যাটাগরি ইতিমধ্যে রয়েছে!');
+                              return;
+                            }
+                            await onAddCategory(val);
+                            setNewCategoryInput('');
+                          }}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs cursor-pointer transition-all shrink-0 shadow-xs flex items-center gap-1"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          যুক্ত করুন
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-slate-400 font-bold leading-relaxed">
+                        * নতুন ক্যাটাগরি যুক্ত করলে তা সাথে সাথে পণ্য যোগ করার প্যানেল এবং গ্রাহক প্যানেলে বিভাগ ফিল্টার তালিকায় যুক্ত হবে।
+                      </p>
+                    </div>
+
+                    {/* Categories List */}
+                    <div className="space-y-2.5">
+                      <h4 className="text-[11px] font-black text-slate-700 uppercase tracking-wider">
+                        বর্তমান ক্যাটাগরিসমূহ ({categories.length} টি)
+                      </h4>
+                      <div className="flex flex-wrap gap-2 max-h-[120px] overflow-y-auto p-2 bg-white rounded-xl border border-slate-200">
+                        {categories.map(cat => {
+                          const isDefault = cat === 'অন্যান্য' || cat === 'মিষ্টি জাতীয়' || cat === 'কোমল পানীয়';
+                          return (
+                            <div 
+                              key={cat} 
+                              className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-150 rounded-lg text-xs font-bold text-slate-700"
+                            >
+                              <span>{cat}</span>
+                              {!isDefault && (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (confirm(`আপনি কি "${cat}" ক্যাটাগরি মুছে ফেলতে চান?`)) {
+                                      await onDeleteCategory(cat);
+                                    }
+                                  }}
+                                  className="text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                                  title="মুছে ফেলুন"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
               )}
             </AnimatePresence>
           </div>

@@ -25,7 +25,10 @@ import {
   saveTokenToFirestore,
   addExpense,
   deleteExpense,
-  NotificationLog
+  NotificationLog,
+  subscribeCategories,
+  addCategory,
+  deleteCategory
 } from './firebaseService';
 import { 
   Store, ShieldCheck, ShoppingBag, Info, LogIn, LogOut, Lock, 
@@ -40,6 +43,7 @@ export default function App() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [subAdmins, setSubAdmins] = useState<SubAdmin[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [categories, setCategories] = useState<string[]>(['মিষ্টি জাতীয়', 'কোমল পানীয়', 'অন্যান্য']);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   const [activeTab, setActiveTab] = useState<'customer' | 'admin'>('customer');
@@ -93,6 +97,11 @@ export default function App() {
     // 5.5 Expenses real-time subscription
     const unsubExpenses = subscribeExpenses((data) => {
       setExpenses(data);
+    });
+
+    // 5.7 Categories real-time subscription
+    const unsubCategories = subscribeCategories((data) => {
+      setCategories(data);
     });
 
     // 6. Notifications real-time subscription with live Toast triggers
@@ -168,6 +177,7 @@ export default function App() {
       unsubSubAdmins();
       unsubExpenses();
       unsubNotifications();
+      unsubCategories();
     };
   }, [isMainAdmin, isSubAdmin, soundEnabled]);
 
@@ -525,7 +535,7 @@ export default function App() {
           {/* User Auth Status / Control */}
           <div className="flex flex-wrap items-center gap-2" id="header-controls">
             
-            {/* Go to App Option */}
+            {/* Get App Option */}
             <a
               href="https://drive.google.com/file/d/187r-DMkQCJQEZSeQkM_rvLx8FPhlAjEo/view?usp=sharing"
               target="_blank"
@@ -535,7 +545,7 @@ export default function App() {
               title="আমাদের মোবাইল অ্যাপ ডাউনলোড করুন"
             >
               <Smartphone className="w-3.5 h-3.5 text-indigo-100 animate-pulse" />
-              <span>Go to App</span>
+              <span>Get App</span>
             </a>
             
             {/* Logged in info */}
@@ -656,6 +666,7 @@ export default function App() {
                 onPlaceOrder={handlePlaceOrder}
                 currentUser={currentUser}
                 onOpenAuth={() => setAuthModalOpen(true)}
+                categories={categories}
               />
             </motion.div>
           ) : (
@@ -689,6 +700,9 @@ export default function App() {
                   expenses={expenses}
                   onAddExpense={handleAddExpense}
                   onDeleteExpense={handleDeleteExpense}
+                  categories={categories}
+                  onAddCategory={addCategory}
+                  onDeleteCategory={deleteCategory}
                 />
               ) : (
                 /* Beautiful restricted access state */

@@ -13,9 +13,10 @@ interface CustomerPanelProps {
   onPlaceOrder: (order: Omit<Order, 'id' | 'status' | 'createdAt'>) => string; // returns orderId
   currentUser: FirebaseUser | null;
   onOpenAuth: () => void;
+  categories: string[];
 }
 
-export default function CustomerPanel({ products, orders, onPlaceOrder, currentUser, onOpenAuth }: CustomerPanelProps) {
+export default function CustomerPanel({ products, orders, onPlaceOrder, currentUser, onOpenAuth, categories }: CustomerPanelProps) {
   // Navigation inside Customer Panel
   const [activeCustomerView, setActiveCustomerView] = useState<'shop' | 'tracking'>('shop');
 
@@ -53,8 +54,8 @@ export default function CustomerPanel({ products, orders, onPlaceOrder, currentU
   // Success screen state
   const [lastPlacedOrderId, setLastPlacedOrderId] = useState<string | null>(null);
 
-  // Categories
-  const categories = ['all', 'মিষ্টি জাতীয়', 'কোমল পানীয়', 'অন্যান্য'];
+  // Categories list with 'all' prepended
+  const customerCategories = ['all', ...categories];
 
   // Total price for current selection
   const currentTotalPrice = selectedProduct ? (orderQuantity * selectedProduct.sellingPrice) : 0;
@@ -172,7 +173,7 @@ export default function CustomerPanel({ products, orders, onPlaceOrder, currentU
               )}
             </button>
             
-            {/* Go to App Option */}
+            {/* Get App Option */}
             <a
               href="https://drive.google.com/file/d/187r-DMkQCJQEZSeQkM_rvLx8FPhlAjEo/view?usp=sharing"
               target="_blank"
@@ -181,7 +182,7 @@ export default function CustomerPanel({ products, orders, onPlaceOrder, currentU
               id="go-to-app-banner-link"
             >
               <Smartphone className="w-3.5 h-3.5 text-emerald-100" />
-              Go to App
+              Get App
             </a>
           </div>
         </div>
@@ -206,7 +207,7 @@ export default function CustomerPanel({ products, orders, onPlaceOrder, currentU
             <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-none" id="shop-category-scroll">
               <Filter className="w-3.5 h-3.5 text-gray-400 shrink-0" />
               <span className="text-xs font-bold text-gray-400 shrink-0 mr-1">বিভাগ:</span>
-              {categories.map(cat => (
+              {customerCategories.map(cat => (
                 <button
                   key={cat}
                   onClick={() => setActiveCategory(cat)}
